@@ -27,7 +27,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
 
       # 先抓取再通知：fetch/diff 与管理员邮件通知均只用标准库
       - name: Run quota check
