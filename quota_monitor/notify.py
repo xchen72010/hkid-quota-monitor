@@ -1,9 +1,8 @@
-"""放号通知：events.json -> 防抖过滤 -> 聚合 -> QQ SMTP 邮件 + 飞书 webhook。
+"""放号通知：events.json -> 日期/防抖过滤 -> 聚合 -> QQ SMTP 邮件。
 
 环境变量（CI secrets 注入；全部缺省时静默跳过，不让 CI 失败）：
 - QQ_SMTP_USER / QQ_SMTP_PASS : 发件 QQ 邮箱与 SMTP 授权码
 - ADMIN_EMAIL                 : 管理员收件邮箱（必收）
-- FEISHU_WEBHOOK              : 飞书群自定义机器人 webhook URL
 - SUBSCRIBER_KEY              : 订阅者文件 Fernet 解密钥（Phase 5）
 - NOTIFY_COOLDOWN_MIN         : 单格冷却分钟数，默认 360
 - DRY_RUN=1                   : 打印代替真实发送
@@ -62,7 +61,7 @@ def load_alert_cfg(path: str = "config.json") -> dict:
     except Exception:  # noqa: BLE001
         return {}
     cfg = {k: v for k, v in raw.items()
-           if k in ("urgent_before", "notice_before", "monitor_before")
+           if k in ("urgent_before", "notice_before", "monitor_from", "monitor_before")
            and isinstance(v, str) and _ISO_DATE.fullmatch(v)}
     u, n = cfg.get("urgent_before"), cfg.get("notice_before")
     if u and n and u > n:
@@ -71,9 +70,10 @@ def load_alert_cfg(path: str = "config.json") -> dict:
 
 
 def in_monitor_window(date: str, cfg: dict) -> bool:
-    """是否在监测窗口内。窗口外（如 10 月、9 月下旬的名额）既不通知也不计冷却——
-    实测这类占放号总量约三成，推给用户全是噪声。未配置 monitor_before 时不过滤。"""
-    return not cfg.get("monitor_before") or date < cfg["monitor_before"]
+    """邮件窗口：monitor_from 包含当天，monitor_before 排除当天。
+    两个边界独立且可选；不影响看板数据，也不使用分级阈值作上限。"""
+    return ((not cfg.get("monitor_from") or date >= cfg["monitor_from"])
+            and (not cfg.get("monitor_before") or date < cfg["monitor_before"]))
 
 
 def tier_of(date: str, cfg: dict) -> str:
@@ -285,6 +285,8 @@ def send_emails(payloads: list[tuple[str, str, str]], dry: bool) -> None:
                 failed += 1
                 print(f"WARN send to {mask_email(rcpt)} failed: {e}")
     print(f"email sent -> {sent} ok, {failed} failed")
+    if failed and not sent:
+        raise RuntimeError("所有邮件均发送失败")
 
 
 class FeishuError(RuntimeError):
@@ -511,24 +513,17 @@ def main() -> None:
     n_out = len(events) - len(in_window)
     if n_out:
         print(f"filtered: {n_out} 个事件在监测窗口外"
-              f"（>= {cfg.get('monitor_before')}），不推送")
+              f"（起始日含当天={cfg.get('monitor_from', '不限')}，"
+              f"上限不含当天={cfg.get('monitor_before', '不限')}），不推送")
 
     state = load_state()
+    state_before = copy.deepcopy(state)
     fresh = filter_events(in_window, state, cooldown)
     if not fresh:
         print("skip: no notify-worthy events after window/cooldown filter")
         return
 
     n = len(fresh)
-    # 冷却状态先落盘再发送：单通道抛异常时另一通道已发出的通知
-    # 不会因 state 丢失而在下一轮重复轰炸（宁可漏一轮，不可炸订阅者）。
-    # 但「两个通道全失败」是另一回事——那批名额一个人都没通知到，
-    # 冷却却已烧掉，6 小时内不再提醒 = 彻底错过。故先留快照，全败时回滚。
-    state_before = copy.deepcopy(state)
-    prune_state(state)
-    STATE_PATH.write_text(json.dumps(state, ensure_ascii=False, indent=1),
-                          encoding="utf-8")
-
     # 逐人个性化：管理员收全量；订阅者只收自己偏好范围内的事件，无匹配不打扰
     payloads: list[tuple[str, str, str]] = []
     admin = os.environ.get("ADMIN_EMAIL", "").lower()
@@ -548,25 +543,19 @@ def main() -> None:
     if skipped:
         print(f"personalized: {skipped} subscribers had no matching events")
 
-    all_tiers = [tier_of(e["date"], cfg) for e in fresh]
-    tier = ("urgent" if "urgent" in all_tiers
-            else "notice" if "notice" in all_tiers else "info")
-    tier_n = all_tiers.count(tier)
-    # 飞书优先：webhook 约 1 秒送达，SMTP 群发要几十秒——抢名额时这段差距是决定性的
-    ok = 0
-    for send in (lambda: send_feishu(summarize(fresh, md=True), n, dry, tier,
-                                     cfg, tier_n, fresh),
-                 lambda: send_emails(payloads, dry)):
-        try:
-            send()
-            ok += 1
-        except Exception as e:  # noqa: BLE001 - 通道间互不拖累
-            print(f"WARN notify channel failed: {e}")
-    if ok == 0:
-        # 一个人都没通知到 -> 回滚冷却，让下一轮重试，否则这批名额彻底错过
+    if not payloads:
+        print("skip email: no recipients; cooldown unchanged")
+        return
+    # 邮件是唯一启用通道；发送前落盘保持原冷却机制，失败则恢复过滤前状态。
+    prune_state(state)
+    STATE_PATH.write_text(json.dumps(state, ensure_ascii=False, indent=1),
+                          encoding="utf-8")
+    try:
+        send_emails(payloads, dry)
+    except Exception as e:  # noqa: BLE001 - 发送失败不能烧掉冷却
         STATE_PATH.write_text(json.dumps(state_before, ensure_ascii=False, indent=1),
                               encoding="utf-8")
-        print(f"WARN 所有通道均失败，已回滚冷却状态待下轮重试（{n} cells）")
+        print(f"WARN 邮件发送失败({e})，已回滚冷却状态待下轮重试（{n} cells）")
         return
     print(f"OK notified={n} cells, {len(payloads)} emails")
 

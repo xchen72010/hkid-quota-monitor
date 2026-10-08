@@ -282,16 +282,10 @@ var REPO = (function () {
   if (j) return j[1] + "/" + j[2];
   return "chen1111-a/hkid-quota-monitor";
 })();
-/* 订阅入口只在本仓库生效：fork 出去后自动置空，避免把 fork 用户的订阅信
-   和群成员导给原作者。自部署者把 OWNER_REPO 改成自己的仓库并填这两项即可。 */
+/* 本 Fork 只通过 Actions Secrets 给管理员发邮件，不开放订阅或飞书入口。 */
 var OWNER_REPO = "chen1111-a/hkid-quota-monitor";
-var SUBSCRIBE_EMAIL = REPO === OWNER_REPO ? "2037445294@qq.com" : "";
-var FEISHU_GROUP_URL = REPO === OWNER_REPO
-  /* 链接里的 & 写成 &amp;：这串会直接拼进 innerHTML 的 href，裸 & 属于
-     HTML 的歧义实体引用，浏览器目前当字面量处理但不保证一直如此。
-     注意本串已是 HTML 转义态，勿再过 esc()，否则 &amp;amp; 会断链 */
-  /* 1~4 群都已满 500 人上限，新人入口指 5 群（五群同步收全部提醒） */
-  ? "https://applink.feishu.cn/client/chat/chatter/add_by_link?link_token=7c7i30bc-4086-4ec7-8802-462f8072d6fa" : "";  // 飞书群分享链接（配置后按钮自动出现）
+var SUBSCRIBE_EMAIL = "";
+var FEISHU_GROUP_URL = "";
 /* 用官方预约系统显示的地区名（接口 district 字段），与官网对得上 */
 var OFFICE_SHORT = { RHK: "湾仔", RKO: "长沙湾", RTK: "将军澳", FTO: "火炭", TMO: "屯门", YLO: "元朗" };
 var OFFICE_ORDER = ["RHK", "RKO", "RTK", "FTO", "TMO", "YLO"];

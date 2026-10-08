@@ -1,106 +1,69 @@
-# 香港身份证预约配额看板
+# 香港身份证预约配额看板与邮件提醒
 
-![monitor](https://github.com/chen1111-a/hkid-quota-monitor/actions/workflows/monitor.yml/badge.svg)
+本仓库是 [chen1111-a/hkid-quota-monitor](https://github.com/chen1111-a/hkid-quota-monitor) 的个人 Fork。
+监控湾仔、长沙湾、将军澳、火炭、屯门、元朗六个人事登记办事处，全部地点均可给 `ADMIN_EMAIL` 发通知。
+只读查询公开配额并提醒；预约或改期由用户在官方网页自行完成，不自动提交预约。
 
-监控香港入境处六大人事登记办事处的智能身份证预约配额，约 2 分钟检测一次，
-放号时通过邮件 / 飞书群提醒订阅者。**第三方公益工具，非入境处官方服务；只做监控提醒，不做任何代抢代约。**
+## 看板
 
-## 看板入口
+GitHub Pages 启用后的地址：[xchen72010.github.io/hkid-quota-monitor](https://xchen72010.github.io/hkid-quota-monitor/)。
+看板从 Pages 地址自动识别本 Fork，沿用原有全部日期、全部办事处展示、筛选与刷新逻辑。
+邮件的起始日期不筛掉看板日期；看板的分级横幅仍按原有阈值显示。
+本 Fork 不开放邮件订阅或飞书群入口；收件地址仅通过 Secrets 配置。
 
-- **首选（内地直连稳定）**：https://hkid-quota-monitor.pages.dev/
-- 备用：https://chen1111-a.github.io/hkid-quota-monitor/
-  （内地网络对 github.io 时通时断；jsDelivr/raw 直链带 nosniff 头只会显示源码，不要当网页入口用）
-- 内地免翻墙的完整体验走**邮件订阅 + 飞书群**——通知链路全程国内直连，放号第一时间推到手机，看板只是辅助
+## 邮件范围与分级
 
-## 它怎么工作
+根目录 [config.json](config.json) 当前设置为：
 
-```
-cron-job.org（每2分钟）──▶ GitHub Actions
-                            │  python -m quota_monitor.run
-                            │  ├─ 抓入境处公开配额接口（只读，一次一请求）
-                            │  ├─ 与上一轮快照 diff → 放号事件
-                            │  └─ commit data/ + 刷新 jsDelivr 缓存
-                            ▼
-        index.html 看板（手机优先，90 秒自动刷新）
-        邮件 + 飞书通知（放号事件触发，带防抖冷却）
-```
+| 配置 | 值 | 含义 |
+|---|---|---|
+| `monitor_from` | `2026-10-18` | 通知起始日，包含当天；排除 2026-10-17 及更早日期 |
+| `monitor_before` | `2026-11-24` | 排他的上限，即最晚通知 2026-11-23（包含当天）；移除此键可恢复无结束日期 |
+| `urgent_before` | `2026-10-26` | 早于该日为 🚨 大提醒 |
+| `notice_before` | `2026-11-02` | 早于该日为 🔔 小提醒；其余为 🎫 常规提醒 |
 
-- 接口结构：[docs/api-notes.md](docs/api-notes.md)
-- 2 分钟触发配置：[docs/cron-setup.md](docs/cron-setup.md)
+邮件范围为 **2026-10-18 至 2026-11-23（包含两端）**。
+分级阈值只决定提醒样式，不是通知截止日；2026-11-02 至 2026-11-23 仍发常规提醒，所有六个办事处均不按地点偏好过滤。
+只对符合范围的 `new_date`（新增可约日期）和 `quota_open`（重新开放名额）发邮件。
+保留原有每格 360 分钟冷却（可用 `NOTIFY_COOLDOWN_MIN` 调整）、旧节点防抖和分级能力。
+无收件人时不消耗冷却；邮件发送失败恢复本轮之前的冷却状态。
+不设起始日时兼容旧配置；两个分级阈值填反仍自动对调。
 
-## 相比同类工具的改进
+## 审核后启用
 
-- **手机优先**：日期做行纵向滚动，6 办事处一屏放下，不用横向拖表格
-- **色盲友好**：状态格颜色+文字双通道（有/少/满）
-- **防通知轰炸**：官方接口存在负载均衡数据抖动（实测同一分钟内 304↔346 格波动），通知层带单格冷却期，不会每轮都轰炸一次
-- **内地直连**：邮件订阅与飞书通知链路全程国内直达，无需科学上网
-- 深浅双主题、摘要卡直接回答「最早哪天能约」
+1. 审核代码与配置，再将改动合入自己的 `main`。不要对原作者仓库操作。
+2. 在本 Fork 的 **Settings → Secrets and variables → Actions → New repository secret** 配置三项：
 
-## 个性化订阅
-
-看板「个性化订阅」按钮会打开一个面板：点选办事处、滚轮选日期、
-选「就这一天」或「这天及之前」，确定后自动生成订阅邮件，发出即生效。
-
-不用面板、直接在订阅邮件里写需求也认：
-
-```
-订阅 只看湾仔 长沙湾 2026-10-15之前
-就这一天放号才通知：2026-08-31
-```
-
-- 办事处：写官方地区名（湾仔/长沙湾/将军澳/火炭/屯门/元朗，旧称港岛/九龙也认），没写 = 全部
-- 截止日期：支持 2026-10-15 / 2026/10/15 / 2026年10月15日，没写 = 不限
-- 锁定某一天：写「就这一天放号才通知：日期」，可写多个日期；
-  与截止日同时写时以指定日为准。注意日期要在监测窗口（config.json 的
-  monitor_before）之内，窗口外的日期不会有任何推送
-- 重发一封订阅邮件 = 更新偏好；确认信会回显系统解析到的范围，可核对
-- 放号提醒只推你范围内的名额，范围外不打扰
-
-## 分级提醒
-
-编辑仓库根目录的 [config.json](config.json)（GitHub 网页上点铅笔图标即可）设置两条日期线：
-
-**监测窗口 `monitor_before`**：只关心这天之前的名额，之后的（如 10 月、9 月下旬）
-既不推送也不在看板高亮——实测这类占放号总量约三成，全是噪声。
-
-- 名额日期早于 `urgent_before` → **大提醒**：🚨 邮件红头 + 飞书 @所有人 + 看板红色横幅
-- 早于 `notice_before` → **小提醒**：🔔 前缀 + 看板黄色横幅
-- 其余（仍在监测窗口内）→ 常规 🎫 提醒
-
-改完无需重新部署：Pages 链路即时生效；jsDelivr 手机镜像随下一次数据提交刷新（最长约 20 分钟）。
-注意 `urgent_before` 应早于 `notice_before`（填反会自动对调）；日期必须是 `YYYY-MM-DD` 格式（格式不对该行自动失效，不会误报）。
-
-## 一键自部署（拥有一套自己的监控）
-
-整套系统零服务器、零费用，6 步搭一套：
-
-1. **Fork 本仓库**（右上角 Fork 按钮）
-2. Fork 后进入自己仓库的 **Actions** 页 → 点绿色按钮启用 workflow（GitHub 对 fork 默认停用）
-3. **Settings → Pages** → Source 选 `main` 分支根目录 → 保存，几分钟后看板就在 `https://你的用户名.github.io/hkid-quota-monitor/`（看板会自动识别你的仓库，无需改代码）
-4. （要通知才需要）**Settings → Secrets and variables → Actions** 添加：
    | Secret | 内容 |
    |---|---|
-   | `QQ_SMTP_USER` | 发信 QQ 邮箱地址 |
-   | `QQ_SMTP_PASS` | QQ 邮箱 SMTP/IMAP 授权码（设置→账号→开启服务获取） |
-   | `ADMIN_EMAIL` | 你自己的收件邮箱 |
-   | `SUBSCRIBER_KEY` | Fernet 密钥，本地跑 `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` 生成 |
-   | `FEISHU_WEBHOOK` | （可选）飞书群自定义机器人 webhook |
-5. （要 2 分钟级才需要）照 [docs/cron-setup.md](docs/cron-setup.md) 配 cron-job.org；不配则走 15 分钟兜底调度
-6. （开放订阅才需要）改 `index.html` 顶部三个常量：`OWNER_REPO` 改成你的 `用户名/仓库名`，`SUBSCRIBE_EMAIL` 填收件 QQ 邮箱，`FEISHU_GROUP_URL` 填飞书群链接。
-   ⚠️ 不改 `OWNER_REPO` 时订阅入口会自动隐藏（防止 fork 的用户误把订阅信发给原作者），这是有意设计
+   | `QQ_SMTP_USER` | 作为发件人的完整 QQ 邮箱地址 |
+   | `QQ_SMTP_PASS` | QQ 邮箱 SMTP 授权码，直接粘贴到 GitHub Secret，不是 QQ 登录密码，也不要贴到聊天或提交到仓库 |
+   | `ADMIN_EMAIL` | 管理员收件邮箱地址 |
 
-## Cloudflare Pages 部署（内地稳定入口，可选）
+   QQ SMTP 沿用 `smtp.qq.com:587` + STARTTLS。无需 `SUBSCRIBER_KEY` 或其他消息平台凭据。
+3. **Actions** 页如显示 Fork 工作流停用，点击启用。保留工作流 `*/15 * * * *` 的 15 分钟兜底；GitHub 调度可能延迟。
+4. **Settings → Pages → Build and deployment**：Source 选 **Deploy from a branch**，分支 **main**，目录 **/(root)**，保存后才会发布看板。
+5. 仅需要两分钟级触发时，手动按 [docs/cron-setup.md](docs/cron-setup.md) 配置外部 cron；默认不创建外部账户或服务。
 
-github.io 在内地移动网络时通时断。把同一个仓库再挂到 Cloudflare Pages（`*.pages.dev` 内地基本直连可达），页面和数据都有第二个门：
+这些设置应在审核后完成，避免旧 `main` 配置被提前启用。代码改动本身不会启动监控或发布网页。
 
-1. 注册/登录 [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages → Create → Pages → Connect to Git** → 选本仓库
-2. 构建设置全部留空（纯静态，无构建步骤），直接 **Save and Deploy**
-3. 部署完成后进入项目 **Settings → Builds & deployments → Build watch paths**，Exclude 填 `data/*`——**必须做**：本仓库每几分钟提交一次数据，不排除的话免费版每月 500 次构建一天烧光
-4. 完成。`https://项目名.pages.dev` 即第二入口：仓库里的 `functions/` 会自动生效——`/data/*` 走边缘实时代理回源 GitHub（30 秒缓存，数据不受构建频率影响），`/api/runs` 代理调度审计（内地也能看到绿勾）
+## 工作流程与最小冒烟
 
-## 声明
+```
+GitHub Actions（15 分钟兜底 / 可选外部 tick）
+  → quota_monitor.run：抓取、校验、diff、保存全部地点/日期数据
+  → quota_monitor.notify：通知日期窗口、每格冷却、QQ SMTP 邮件
+  → data/ 提交与 GitHub Pages 静态看板
+```
 
-- 数据来自入境处公开配额查询页同源接口，抓取频率低于官方页面自身的自动刷新强度
-- 仅供学习交流，禁止商用；请以[入境处官网](https://www.gov.hk/tc/residents/immigration/idcard/hkic/bookregidcard.htm)为准
-- 订阅者邮箱加密存储，退订随时生效
-- 运营上限：QQ 个人邮箱日发送额度有限（数百封/天量级），订阅规模接近该量级时应改用企业邮箱或专业发信服务
+运行本次改动的离线冒烟：
+
+```sh
+python tests/test_monitor_email_smoke.py
+```
+
+仅验证日期边界、晚日期、六办事处与事件类型、分级、冷却、邮件 dry-run 和失败恢复。
+使用临时数据目录及邮件桩，不查询入境处、不发送真实邮件、不修改仓库配额数据。
+接口结构见 [docs/api-notes.md](docs/api-notes.md)。
+
+第三方工具，非入境处官方服务；名额以[入境处官方预约网页](https://www.gov.hk/tc/residents/immigration/idcard/hkic/bookregidcard.htm)为准。
