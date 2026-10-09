@@ -10,6 +10,7 @@ GitHub Pages 启用后的地址：[xchen72010.github.io/hkid-quota-monitor](http
 看板从 Pages 地址自动识别本 Fork，沿用原有全部日期、全部办事处展示、筛选与刷新逻辑。
 邮件的起始日期不筛掉看板日期；看板的分级横幅仍按原有阈值显示。
 本 Fork 不开放邮件订阅或飞书群入口；收件地址仅通过 Secrets 配置。
+当前已配置 cron-job.org 每 2 分钟触发监控，并保留 GitHub 自带的 15 分钟兜底；实际执行仍可能排队或延迟。
 
 ## 邮件范围与分级
 

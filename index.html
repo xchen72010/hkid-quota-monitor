@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>香港身份证预约配额看板</title>
-<meta name="description" content="香港入境处智能身份证预约配额监控：计划每15分钟检测六大办事处放号情况，调度可能延迟（第三方工具，非官方）">
+<meta name="description" content="香港入境处智能身份证预约配额监控：计划每2分钟触发六大办事处配额检查，保留15分钟兜底，调度可能延迟（第三方工具，非官方）">
 <style>
 :root {
   --bg: #fcfcfb; --card: #ffffff; --ink: #1c1c1a; --ink-2: #5f5e5a; --ink-3: #92918c;
@@ -265,7 +265,7 @@ footer a { color: var(--ink-2); }
   <div id="diyMask"><!-- DIY 订阅面板，openDiy() 首次打开时填充 --></div>
 
   <footer>
-    第三方公益工具，数据来自入境处公开配额查询接口，计划每 15 分钟检测一次，GitHub 调度可能延迟，请以
+    第三方公益工具，数据来自入境处公开配额查询接口，计划每 2 分钟触发监控，保留 15 分钟兜底，调度可能延迟，请以
     <a href="https://www.gov.hk/tc/residents/immigration/idcard/hkic/bookregidcard.htm" target="_blank" rel="noopener">入境处官网</a>
     为准。仅供学习交流，请勿用于商业用途。反黄牛：本工具只做监控提醒，不做任何代抢代约。
   </footer>
@@ -1012,7 +1012,7 @@ function fetchProof(useProxy) {
     });
 }
 
-/* 90 秒自动刷新页面；监控计划每 15 分钟运行，切回前台也刷新 */
+/* 90 秒自动刷新页面；外部服务计划每 2 分钟触发监控，切回前台也刷新 */
 fetchData();
 fetchProof();
 setInterval(fetchData, 90 * 1000);          // 页面 90 秒重拉，数据以最近实际监控为准

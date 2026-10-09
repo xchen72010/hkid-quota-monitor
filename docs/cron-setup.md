@@ -8,7 +8,7 @@
 
 1. **生成 GitHub Token（PAT）**
    - 打开 https://github.com/settings/personal-access-tokens/new
-   - Token name: `quota-monitor-tick`；Expiration: 1 year
+   - Token name: `quota-monitor-tick`；Expiration: 60 days（有效期需覆盖预约监控日期）
    - Repository access: Only select repositories → `hkid-quota-monitor`
    - Permissions → Repository permissions → **Contents: Read and write**
    - Generate token，复制 `github_pat_...` 备用
@@ -27,7 +27,7 @@
        |---|---|
        | Accept | application/vnd.github+json |
        | Authorization | Bearer github_pat_你的token |
-       | User-Agent | cron-job.org |
+       | Content-Type | application/json |
      - Request body: `{"event_type":"tick"}`
    - 保存后点 TEST RUN，返回 204 即成功
 
