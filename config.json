@@ -3,7 +3,7 @@
   "_monitor_from": "邮件通知起始日：从这一天起（包含当天）通知新增/重新开放名额。看板仍展示全部日期和六个办事处。",
   "monitor_from": "2026-10-18",
   "_monitor_before": "可选且独立的通知上限：只通知早于该日的名额；不填写 monitor_before 表示无结束日期。",
-  "monitor_before": "2026-11-24",
+  "monitor_before": "2026-11-01",
   "_urgent_before": "大提醒线：早于该日为 🚨 邮件红头；仅分级，不是通知截止日。",
   "urgent_before": "2026-10-26",
   "_notice_before": "小提醒线：早于该日为 🔔 提醒；更晚日期仍发常规 🎫 邮件。",

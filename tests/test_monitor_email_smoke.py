@@ -49,11 +49,11 @@ class MonitorEmailSmoke(unittest.TestCase):
     def test_config_and_independent_date_boundaries(self):
         cfg = N.load_alert_cfg(str(ROOT / "config.json"))
         self.assertEqual(cfg["monitor_from"], "2026-10-18")
-        self.assertEqual(cfg["monitor_before"], "2026-11-24")
+        self.assertEqual(cfg["monitor_before"], "2026-11-01")
         self.assertFalse(N.in_monitor_window("2026-10-17", cfg))
-        for date in ("2026-10-18", "2026-11-02", "2026-11-23"):
+        for date in ("2026-10-18", "2026-10-26", "2026-10-31"):
             self.assertTrue(N.in_monitor_window(date, cfg))
-        self.assertFalse(N.in_monitor_window("2026-11-24", cfg))
+        self.assertFalse(N.in_monitor_window("2026-11-01", cfg))
         self.assertFalse(N.in_monitor_window("2027-01-01", cfg))
         no_upper = {k: v for k, v in cfg.items() if k != "monitor_before"}
         self.assertTrue(N.in_monitor_window("2027-01-01", no_upper))
@@ -80,7 +80,7 @@ class MonitorEmailSmoke(unittest.TestCase):
 
     def test_all_six_offices_and_new_reopened_events_email_dry_run(self):
         offices = list(N.OFFICE_NAMES)
-        dates = ["2026-10-17", "2026-10-18", "2026-11-23", "2026-11-24", "2027-01-01"]
+        dates = ["2026-10-17", "2026-10-18", "2026-10-31", "2026-11-01", "2027-01-01"]
         old = {"dates": dates[:2], "quota": {o: {d: {"R": "r", "K": "x"}
                                                for d in dates[:2]} for o in offices}}
         new = {"dates": dates, "quota": {o: {d: {"R": "y", "K": "x"}
@@ -98,8 +98,8 @@ class MonitorEmailSmoke(unittest.TestCase):
                 body = payloads[0][2]
                 self.assertNotIn("10/17", body)
                 self.assertIn("10/18", body)
-                self.assertIn("11/23", body)
-                self.assertNotIn("11/24", body)
+                self.assertIn("10/31", body)
+                self.assertNotIn("11/01", body)
                 self.assertNotIn("01/01", body)
                 for office in N.OFFICE_NAMES.values():
                     self.assertIn(office, body)
