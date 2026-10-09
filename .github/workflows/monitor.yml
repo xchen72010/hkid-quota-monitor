@@ -5,7 +5,7 @@ on:
     types: [tick]          # 可选外部 cron 每 2 分钟 POST 触发（见 docs/cron-setup.md）
   workflow_dispatch: {}    # 手动触发
   schedule:
-    - cron: "*/15 * * * *" # 兜底：外部定时器失效时仍有 15 分钟级监控
+    - cron: "7,22,37,52 * * * *" # 15 分钟兜底，错开整点调度高峰
 
 concurrency:
   group: quota-monitor
@@ -131,7 +131,8 @@ jobs:
           # 窗口」两个巧合，下午提交稀疏时能连续 3 小时碰不上，镜像照样烂
           # （实测停到 3.5 小时前）。内容没变时白清一次也无妨，新鲜度优先。
           # 最坏 ~8 次/小时/路径，仍在配额内；响应打日志，throttled 要看得见
-          M=$((10#$(date +%M) % 15))
+          # 与 schedule 同步，清缓存窗口为每小时 7/8、22/23、37/38、52/53 分
+          M=$(((10#$(date +%M) + 8) % 15))
           if [ "$M" -ge 2 ]; then echo "skip purge (quota window, minute=$(date +%M))"; exit 0; fi
           for f in index.html config.json data/quota.json data/meta.json data/history.jsonl; do
             resp=$(curl -sS -m 20 "https://purge.jsdelivr.net/gh/${GITHUB_REPOSITORY}@main/${f}" || echo curl-failed)

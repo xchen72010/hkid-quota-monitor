@@ -41,7 +41,7 @@ GitHub Pages 启用后的地址：[xchen72010.github.io/hkid-quota-monitor](http
    | `ADMIN_EMAIL` | 管理员收件邮箱地址 |
 
    QQ SMTP 沿用 `smtp.qq.com:587` + STARTTLS。无需 `SUBSCRIBER_KEY` 或其他消息平台凭据。
-3. **Actions** 页如显示 Fork 工作流停用，点击启用。保留工作流 `*/15 * * * *` 的 15 分钟兜底；GitHub 调度可能延迟。
+3. **Actions** 页如显示 Fork 工作流停用，点击启用。保留工作流 `7,22,37,52 * * * *` 的 15 分钟兜底，错开整点调度高峰；GitHub 调度可能延迟或丢失，失败的一轮不会关闭后续计划。
 4. **Settings → Pages → Build and deployment**：Source 选 **Deploy from a branch**，分支 **main**，目录 **/(root)**，保存后才会发布看板。
 5. 仅需要两分钟级触发时，手动按 [docs/cron-setup.md](docs/cron-setup.md) 配置外部 cron；默认不创建外部账户或服务。
 
